@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>SRC Analytics PRO · Planos Personalizáveis</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: #0A0A0F; color: #E2E8F0; height: 100vh; overflow: hidden; }
+        .app-layout { display: flex; height: 100vh; width: 100%; }
+        .sidebar { width: 280px; background: linear-gradient(180deg, #0F172A 0%, #0A0F1A 100%); border-right: 1px solid rgba(56, 189, 248, 0.15); display: flex; flex-direction: column; overflow-y: auto; padding: 24px 16px; flex-shrink: 0; }
+        .logo h1 { font-size: 22px; font-weight: 700; background: linear-gradient(135deg, #38BDF8, #818CF8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .logo p { font-size: 10px; color: #64748B; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; color: #94A3B8; cursor: pointer; margin-bottom: 2px; transition: all 0.2s; font-size: 13px; }
+        .nav-item:hover { background: rgba(56, 189, 248, 0.1); color: #38BDF8; }
+        .nav-item.active { background: rgba(56, 189, 248, 0.15); color: #38BDF8; border-left: 2px solid #38BDF8; }
+        .nav-section { margin-top: 24px; margin-bottom: 8px; }
+        .nav-title { font-size: 10px; text-transform: uppercase; color: #475569; margin-bottom: 8px; padding-left: 12px; letter-spacing: 1px; }
+        .bankroll-widget { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 16px; padding: 16px; margin-top: auto; margin-bottom: 16px; }
+        .bankroll-amount { font-size: 24px; font-weight: 700; color: #38BDF8; }
+        .stake-input { background: #1E293B; border: 1px solid #334155; padding: 6px 10px; border-radius: 8px; color: white; width: 100px; }
+        .btn-sm { background: linear-gradient(135deg, #38BDF8, #818CF8); border: none; padding: 6px 12px; border-radius: 6px; color: white; cursor: pointer; margin-top: 8px; width: 100%; font-size: 11px; }
+        .main-content { flex: 1; overflow-y: auto; padding: 24px 28px; background: linear-gradient(135deg, #0A0A0F 0%, #0F1218 100%); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 16px; padding: 16px; }
+        .stat-card .value { font-size: 28px; font-weight: 700; }
+        .stat-card .value.green { color: #10B981; }
+        .stat-card .value.cyan { color: #38BDF8; }
+        .table-container { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(56, 189, 248, 0.15); border-radius: 12px; overflow-x: auto; margin-bottom: 24px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 800px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(56, 189, 248, 0.08); }
+        th { background: rgba(26, 31, 46, 0.8); color: #94A3B8; }
+        .badge-diamond { background: #10B98120; color: #10B981; padding: 4px 10px; border-radius: 20px; font-size: 10px; }
+        .badge-gold { background: #FBBF2420; color: #FBBF24; padding: 4px 10px; border-radius: 20px; }
+        .btn-add { background: #10B981; border: none; padding: 4px 12px; border-radius: 6px; color: white; cursor: pointer; }
+        .btn-remove { background: #EF4444; border: none; padding: 2px 8px; border-radius: 4px; color: white; cursor: pointer; margin-left: 8px; }
+        .cart-card { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 16px; padding: 20px; margin-top: 24px; }
+        .admin-card { background: rgba(15, 23, 42, 0.8); border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+        .plan-config { background: #1E293B; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+        .user-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid rgba(56, 189, 248, 0.1); }
+        .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 20px; }
+        .pricing-card { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 16px; padding: 20px; text-align: center; }
+        .pricing-card h4 { font-size: 18px; margin-bottom: 8px; }
+        .pricing-card .price { font-size: 24px; font-weight: 700; color: #38BDF8; margin: 12px 0; }
+        .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #0A0A0F, #0F1218); }
+        .login-card { background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 24px; padding: 40px; width: 100%; max-width: 420px; }
+        .login-card input { width: 100%; padding: 12px; background: #1E293B; border: 1px solid #334155; border-radius: 12px; color: white; margin-bottom: 16px; }
+        .login-card button { width: 100%; padding: 12px; background: linear-gradient(135deg, #38BDF8, #818CF8); border: none; border-radius: 12px; color: white; cursor: pointer; }
+        .date-nav { display: flex; gap: 12px; margin-bottom: 24px; align-items: center; flex-wrap: wrap; background: rgba(15, 23, 42, 0.6); padding: 8px 16px; border-radius: 12px; }
+        .date-nav button { background: #1E293B; border: none; padding: 6px 14px; border-radius: 20px; color: #94A3B8; cursor: pointer; }
+        .date-nav button.primary { background: linear-gradient(135deg, #38BDF8, #818CF8); color: white; }
+        .filter-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; background: rgba(15, 23, 42, 0.6); padding: 12px 16px; border-radius: 12px; }
+        .filter-input { background: #1E293B; border: 1px solid #334155; padding: 8px 12px; border-radius: 8px; color: white; flex: 1; }
+        .filter-btn { background: #1E293B; border: none; padding: 6px 14px; border-radius: 20px; color: #94A3B8; cursor: pointer; }
+        .filter-btn.active { background: #38BDF8; color: white; }
+        @media (max-width: 768px) { .sidebar { width: 80px; } .sidebar span { display: none; } }
+    </style>
+</head>
+<body>
+<div id="appLayout" style="display: none;" class="app-layout">
+    <div class="sidebar">
+        <div class="logo"><h1>SRC Analytics</h1><p>PRO 5.0 · PLANOS</p></div>
+        <div class="nav-item active" data-tab="dashboard">⚡ Painel Inicial</div>
+        <div class="nav-item" data-tab="analysis">🔍 Análise do Dia</div>
+        <div class="nav-item" data-tab="goals">⚽ Gols / Over</div>
+        <div class="nav-item" data-tab="corners">🚩 Escanteios</div>
+        <div class="nav-item" data-tab="btts">🎯 Ambas Marcam</div>
+        <div class="nav-item" data-tab="cards">🟨 Cartões</div>
+        <div class="nav-item" data-tab="standings">🏆 Tabelas</div>
+        <div class="nav-section"><div class="nav-title">EMPRESA</div></div>
+        <div class="nav-item" data-tab="admin">🎛️ Admin</div>
+        <div class="nav-item" data-tab="history">📋 Histórico</div>
+        <div class="nav-item" data-tab="performance">📈 Performance</div>
+        <div class="bankroll-widget">
+            <h4>💰 GESTÃO DE BANCA</h4>
+            <div class="bankroll-amount" id="bankrollValue">R$ 1.000</div>
+            <div id="profitLoss">Lucro: R$ 0</div>
+            <div id="roiValue">ROI: 0.0%</div>
+            <div style="margin: 8px 0;">Stake: <input type="number" id="stakeInput" class="stake-input" value="100"></div>
+            <button id="addFundsBtn" class="btn-sm">+ Adicionar Fundos</button>
+            <button id="resetBankrollBtn" class="btn-sm" style="background:#475569;">Resetar Banca</button>
+        </div>
+    </div>
+    <div class="main-content">
+        <div class="date-nav">
+            <button id="prevDayBtn">◀</button>
+            <span id="currentDateDisplay" style="background:#1E293B; padding:6px 16px; border-radius:20px;">08/04/2026</span>
+            <button id="nextDayBtn">▶</button>
+            <button id="todayBtn" class="primary">HOJE</button>
+            <button id="refreshDataBtn" style="background:#10B981;">⟳ ATUALIZAR</button>
+        </div>
+        <div id="dynamicContent"></div>
+    </div>
+</div>
+<div id="loginContainer" class="login-container">
+    <div class="login-card">
+        <h2>🔐 SRC Analytics PRO</h2>
+        <input type="email" id="loginEmail" placeholder="E-mail">
+        <input type="password" id="loginPassword" placeholder="Senha">
+        <button id="doLoginBtn">ENTRAR</button>
+        <div id="toggleAuthBtn" style="text-align:center; margin-top:16px; color:#38BDF8; cursor:pointer;">➡️ Criar nova conta</div>
+        <div id="authMessage" style="margin-top:12px; font-size:12px; color:#EF4444;"></div>
+    </div>
+</div>
+<script>
+    // ================= FIREBASE =================
+    const firebaseConfig = {
+        apiKey: "AIzaSyD_DBdLN3JSmSdM4iCxDVed_SZs1SK0i1Y",
+        authDomain: "src-analytics-41ee2.firebaseapp.com",
+        projectId: "src-analytics-41ee2",
+        storageBucket: "src-analytics-41ee2.firebasestorage.app",
+        messagingSenderId: "890700482601",
+        appId: "1:890700482601:web:d29ea712eede940f5d3438"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const ADMIN_EMAIL = "cleiton19989309527@gmail.com";
+    const FOOTBALL_API_KEY = '7db26346be2224722d76c31cb36aa7c3';
+    
+    let currentUser = null, isAdmin = false, isPremium = false, premiumExpiry = null;
+    let currentDate = new Date(2026, 3, 8);
+    let realMatches = [], cartMatches = [], bankrollData = { balance: 1000, totalInvested: 0, totalReturned: 0, history: [] };
+    let currentTab = "dashboard";
+    let currentFilter = "all";
+    let searchText = "";
+    
+    // Configurações dos planos (você pode mudar aqui ou no Admin)
+    let planConfig = {
+        freeDays: 10,      // Plano FREE dura 10 dias
+        premiumDays: 60    // Plano PREMIUM dura 60 dias
+    };
+    
+    const IA_NAMES = ["GPT-5", "Gemini", "Claude", "DeepSeek", "Copilot", "Mistral", "Grok", "Llama", "Perplexity", "Kimi", "HuggingChat", "Poe", "Groq", "Cohere", "Command R"];
+    
+    // ================= FUNÇÕES DE PLANO =================
+    function getBrasiliaNow() {
+        const agora = new Date();
+        const offsetBrasilia = -3;
+        const utc = agora.getTime() + (agora.getTimezoneOffset() * 60000);
+        return new Date(utc + (3600000 * offsetBrasilia));
+    }
+    
+    function isPlanActive(plan, expiryDate) {
+        if (!expiryDate) return plan === 'free'; // FREE não expira
+        const now = getBrasiliaNow();
+        const expiry = new Date(expiryDate);
+        return now < expiry;
+    }
+    
+    async function checkUserPlan(user) {
+        if (!user) return { isPremium: false, isAdmin: false };
+        if (user.email === ADMIN_EMAIL) return { isPremium: true, isAdmin: true };
+        
+        const doc = await db.collection('users').doc(user.uid).get();
+        if (!doc.exists) return { isPremium: false, isAdmin: false };
+        
+        const userData = doc.data();
+        const expiry = userData.premiumExpiry ? userData.premiumExpiry.toDate() : null;
+        const premiumActive = userData.premium === true && isPlanActive('premium', expiry);
+        
+        return { isPremium: premiumActive, isAdmin: false, expiry: expiry };
+    }
+    
+    async function setUserPlan(userId, planType, days) {
+        let premium = false;
+        let premiumExpiry = null;
+        
+        if (planType === 'premium' && days > 0) {
+            premium = true;
+            const now = getBrasiliaNow();
+            premiumExpiry = new Date(now.getTime() + (days * 24 * 60 * 60 * 1000));
+        }
+        
+        await db.collection('users').doc(userId).set({
+            premium: premium,
+            premiumExpiry: premiumExpiry,
+            planType: planType,
+            planDays: days,
+            updatedAt: new Date()
+        }, { merge: true });
+    }
+    
+    // ================= CACHE E API =================
+    function getCachedMatches(dateStr) {
+        const cached = localStorage.getItem(`matches_${dateStr}`);
+        if (cached) {
+            const { data, timestamp } = JSON.parse(cached);
+            if (Date.now() - timestamp < 60 * 60 * 1000) return data;
+        }
+        return null;
+    }
+    function setCachedMatches(dateStr, data) {
+        localStorage.setItem(`matches_${dateStr}`, JSON.stringify({ data, timestamp: Date.now() }));
+    }
+    
+    async function fetchRealGames(date, forceRefresh = false) {
+        const dateStr = date.toISOString().split('T')[0];
+        if (!forceRefresh) {
+            const cached = getCachedMatches(dateStr);
+            if (cached) return cached;
+        }
+        try {
+            let url = `https://v3.football.api-sports.io/fixtures?date=${dateStr}`;
+            let response = await fetch(url, { headers: { 'x-apisports-key': FOOTBALL_API_KEY } });
+            if (!response.ok) {
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                url = `${proxyUrl}https://v3.football.api-sports.io/fixtures?date=${dateStr}`;
+                response = await fetch(url, { headers: { 'x-apisports-key': FOOTBALL_API_KEY } });
+            }
+            if (!response.ok) return [];
+            const data = await response.json();
+            if (!data.response || data.response.length === 0) return [];
+            const games = [];
+            const agoraBrasilia = getBrasiliaNow();
+            const isToday = dateStr === new Date().toISOString().split('T')[0];
+            for (const fixture of data.response) {
+                const gameDate = new Date(fixture.fixture.date);
+                if (isToday && gameDate <= agoraBrasilia) continue;
+                let odd = 1.18 + (Math.random() * 0.22);
+                odd = parseFloat(odd.toFixed(2));
+                const prob15 = Math.min(99, Math.round((1/odd) * 100) + 8);
+                const prob25 = Math.min(85, Math.round(prob15 * 0.7));
+                games.push({
+                    id: fixture.fixture.id,
+                    time: gameDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                    date: gameDate.toLocaleDateString('pt-BR'),
+                    league: fixture.league.name,
+                    home: fixture.teams.home.name,
+                    away: fixture.teams.away.name,
+                    odd: odd,
+                    prob15: prob15,
+                    prob25: prob25,
+                    avgGoals: (Math.random() * 2 + 2).toFixed(1),
+                    betanoOK: true,
+                    superbetOK: true
+                });
+            }
+            setCachedMatches(dateStr, games);
+            return games;
+        } catch (error) {
+            return [];
+        }
+    }
+    
+    function calculateConsensus(match) {
+        let approveCount = 0;
+        const odd = match.odd;
+        const league = match.league.toLowerCase();
+        const highGoalLeagues = ['premier', 'bundesliga', 'eredivisie', 'champions', 'libertadores', 'a-league'];
+        const isHighGoal = highGoalLeagues.some(l => league.includes(l));
+        for (let i = 0; i < IA_NAMES.length; i++) {
+            let vote = false;
+            if (odd <= 1.25) vote = true;
+            else if (odd <= 1.35 && Math.random() > 0.25) vote = true;
+            if (isHighGoal && Math.random() > 0.2) vote = true;
+            if (match.prob15 >= 85) vote = true;
+            if (vote && Math.random() > 0.1) approveCount++;
+        }
+        return { approved: approveCount, total: IA_NAMES.length, percent: Math.round((approveCount/IA_NAMES.length)*100) };
+    }
+    
+    // ================= BANKROLL =================
+    async function loadBankroll(uid) {
+        const doc = await db.collection('bankroll').doc(uid).get();
+        if (doc.exists) { bankrollData = doc.data(); return bankrollData; }
+        bankrollData = { balance: 1000, totalInvested: 0, totalReturned: 0, history: [] };
+        await db.collection('bankroll').doc(uid).set(bankrollData);
+        return bankrollData;
+    }
+    async function updateBankrollUI() {
+        document.getElementById('bankrollValue').innerHTML = `R$ ${bankrollData.balance.toFixed(2)}`;
+        const profit = bankrollData.totalReturned - bankrollData.totalInvested;
+        document.getElementById('profitLoss').innerHTML = `Lucro: ${profit >= 0 ? '+' : ''}R$ ${profit.toFixed(2)}`;
+        const roi = bankrollData.totalInvested > 0 ? (profit / bankrollData.totalInvested * 100) : 0;
+        document.getElementById('roiValue').innerHTML = `ROI: ${roi.toFixed(1)}%`;
+    }
+    
+    window.addToCart = function(match) {
+        if (!cartMatches.find(m => m.id === match.id)) {
+            cartMatches.push(match);
+            renderCurrentView();
+        }
+    };
+    window.removeFromCart = function(id) {
+        cartMatches = cartMatches.filter(m => m.id !== id);
+        renderCurrentView();
+    };
+    function calculateCombinedOdd() {
+        return cartMatches.reduce((acc, m) => acc * m.odd, 1).toFixed(2);
+    }
+    window.placeBet = async function(win) {
+        const stake = parseFloat(document.getElementById('stakeInput').value);
+        if (isNaN(stake) || stake <= 0) { alert("Stake inválida"); return; }
+        if (stake > bankrollData.balance) { alert("Saldo insuficiente"); return; }
+        const combinedOdd = calculateCombinedOdd();
+        const potentialReturn = stake * combinedOdd;
+        const bet = {
+            date: new Date().toISOString(),
+            games: cartMatches.map(m => `${m.home} vs ${m.away} (${m.odd})`).join(', '),
+            stake: stake,
+            odd: combinedOdd,
+            potentialReturn: potentialReturn,
+            status: win ? 'win' : 'loss'
+        };
+        if (win) {
+            bankrollData.balance += potentialReturn;
+            bankrollData.totalReturned += potentialReturn;
+        } else {
+            bankrollData.balance -= stake;
+            bankrollData.totalInvested += stake;
+        }
+        await db.collection('bankroll').doc(currentUser.uid).set(bankrollData);
+        const newHistory = [...(bankrollData.history || []), bet];
+        await db.collection('bankroll').doc(currentUser.uid).update({ history: newHistory });
+        bankrollData.history = newHistory;
+        cartMatches = [];
+        await updateBankrollUI();
+        renderCurrentView();
+        alert(win ? `✅ GREEN! Ganhou R$ ${potentialReturn.toFixed(2)}` : `❌ RED! Perdeu R$ ${stake.toFixed(2)}`);
+    };
+    
+    async function loadMatches(forceRefresh = false) {
+        realMatches = await fetchRealGames(currentDate, forceRefresh);
+        realMatches = realMatches.map(m => ({ ...m, consensus: calculateConsensus(m) }));
+        renderCurrentView();
+    }
+    
+    // ================= RENDERIZAÇÃO =================
+    function renderDashboard() {
+        const greens = bankrollData.history?.filter(h => h.status === 'win').length || 0;
+        const reds = bankrollData.history?.filter(h => h.status === 'loss').length || 0;
+        const profit = bankrollData.totalReturned - bankrollData.totalInvested;
+        const roi = bankrollData.totalInvested > 0 ? (profit / bankrollData.totalInvested * 100) : 0;
+        const combinedOdd = cartMatches.length ? calculateCombinedOdd() : 0;
+        const maxDisplay = (isPremium || isAdmin) ? realMatches.length : Math.min(3, realMatches.length);
+        
+        let content = `
+            <div class="stats-grid">
+                <div class="stat-card"><h4>✅ GREENS</h4><div class="value green">${greens}</div><small>de ${bankrollData.history?.length || 0}</small></div>
+                <div class="stat-card"><h4>❌ REDS</h4><div class="value red">${reds}</div><small>Meta: ZERO</small></div>
+                <div class="stat-card"><h4>📈 ROI</h4><div class="value ${roi>=0?'green':'red'}">${roi>=0?'+':''}${roi.toFixed(1)}%</div></div>
+                <div class="stat-card"><h4>🎫 ENTRADAS</h4><div class="value cyan">${cartMatches.length}/5</div><small>Meta 5/dia</small></div>
+                <div class="stat-card"><h4>🔢 ODD COMB.</h4><div class="value cyan">${combinedOdd}</div><small>Mín: 1.68</small></div>
+                <div class="stat-card"><h4>💰 LUCRO</h4><div class="value ${profit>=0?'green':'red'}">${profit>=0?'+':''}R$ ${profit.toFixed(2)}</div></div>
+            </div>
+            <div class="table-container">
+                <table><th>HORÁRIO</th><th>LIGA</th><th>JOGO</th><th>ODD</th><th>PROB</th><th>CONFIANÇA</th><th>+</th></tr>
+                <tbody>
+                    ${realMatches.slice(0, maxDisplay).map(m => `
+                        <tr>
+                            <td>${m.time}${!isPremium && !isAdmin ? ' 🔒' : ''}</td>
+                            <td>${m.league}${!isPremium && !isAdmin ? ' 🔒' : ''}${!isPremium && !isAdmin ? '' : ''} ${!isPremium && !isAdmin && m.id !== realMatches[0]?.id ? 'disabled' : ''}</button></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table></div>
+            <div class="pricing-grid">
+                <div class="pricing-card"><h4>📆 FREE</h4><div class="price">R$ 0</div><p>${planConfig.freeDays} dias de teste</p><button onclick="alert('Assine o Premium para mais jogos')">ATIVAR</button></div>
+                <div class="pricing-card"><h4>⭐ PREMIUM</h4><div class="price">R$ 49,90</div><p>${planConfig.premiumDays} dias de acesso</p><button onclick="alert('Em breve')">ASSINAR</button></div>
+            </div>`;
+        
+        if (!isPremium && !isAdmin && realMatches.length > 3) {
+            content += `<div style="text-align:center; margin-top:16px; padding:12px; background:rgba(56,189,248,0.1); border-radius:12px;">🔒 <strong>Plano FREE:</strong> Mostrando 3/${realMatches.length} jogos. Assine PREMIUM por ${planConfig.premiumDays} dias!</div>`;
+        }
+        
+        if (cartMatches.length) {
+            content += `<div class="cart-card"><h3>🎫 BILHETE</h3>${cartMatches.map(m => `<div class="cart-item"><span>${m.home} vs ${m.away} — ${m.odd}</span><button class="btn-remove" onclick="removeFromCart(${m.id})">Remover</button></div>`).join('')}<div>Odd: <strong>${calculateCombinedOdd()}</strong></div><div><button class="btn-add" onclick="placeBet(true)">✅ GREEN</button><button class="btn-add" onclick="placeBet(false)" style="background:#EF4444; margin-left:8px;">❌ RED</button></div></div>`;
+        }
+        document.getElementById('dynamicContent').innerHTML = content;
+    }
+    
+    function renderAnalysis() {
+        let filtered = [...realMatches];
+        if (searchText) filtered = filtered.filter(m => m.home.toLowerCase().includes(searchText) || m.away.toLowerCase().includes(searchText));
+        const maxDisplay = (isPremium || isAdmin) ? filtered.length : Math.min(3, filtered.length);
+        const html = `
+            <div class="filter-bar">
+                <input type="text" id="searchInput" class="filter-input" placeholder="🔎 Buscar time, jogo, liga...">
+            </div>
+            <div class="table-container">
+                <table><th>HORÁRIO</th><th>LIGA</th><th>JOGO</th><th>ODD</th><th>PROB 1.5</th><th>CONSENSO</th><th>+</th></tr>
+                <tbody>
+                    ${filtered.slice(0, maxDisplay).map(m => `
+                        <tr>
+                            <td>${m.time}${!isPremium && !isAdmin ? ' 🔒' : ''}${!isPremium && !isAdmin ? ' 🔒' : ''}</button></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table></div>`;
+        document.getElementById('dynamicContent').innerHTML = html;
+        document.getElementById('searchInput')?.addEventListener('input', (e) => { searchText = e.target.value.toLowerCase(); renderAnalysis(); });
+    }
+    
+    function renderGoals() { document.getElementById('dynamicContent').innerHTML = `<div class="table-container"><h3 style="padding:16px;">⚽ GOLS / OVER</h3>${realMatches.slice(0, isPremium?30:3).map(m=>`<div style="padding:8px 16px;">${m.time} - ${m.home} vs ${m.away} - ${m.odd}</div>`).join('')}</div>${!isPremium?'<div style="text-align:center; padding:12px;">🔒 Premium: 30 jogos/dia</div>':''}`; }
+    function renderCorners() { document.getElementById('dynamicContent').innerHTML = `<div class="table-container"><h3>🚩 ESCANTEIOS</h3>${realMatches.slice(0, isPremium?15:1).map(m=>`<div style="padding:8px 16px;">${m.time} - ${m.home} vs ${m.away}</div>`).join('')}</div>${!isPremium?'<div style="text-align:center; padding:12px;">🔒 Premium: 15+ entradas</div>':''}`; }
+    function renderBtts() { document.getElementById('dynamicContent').innerHTML = `<div class="table-container"><h3>🎯 AMBAS MARCAM</h3>${realMatches.slice(0, isPremium?15:1).map(m=>`<div style="padding:8px 16px;">${m.time} - ${m.home} vs ${m.away}</div>`).join('')}</div>${!isPremium?'<div style="text-align:center; padding:12px;">🔒 Premium: 15+ entradas</div>':''}`; }
+    function renderCards() { document.getElementById('dynamicContent').innerHTML = `<div class="table-container"><h3>🟨 CARTÕES</h3>${realMatches.slice(0, isPremium?15:1).map(m=>`<div style="padding:8px 16px;">${m.time} - ${m.home} vs ${m.away}</div>`).join('')}</div>${!isPremium?'<div style="text-align:center; padding:12px;">🔒 Premium: 15+ entradas</div>':''}`; }
+    function renderStandings() { document.getElementById('dynamicContent').innerHTML = `<div class="admin-card"><h3>🏆 TABELAS</h3><p>Premier League, La Liga, Bundesliga, Serie A, Brasileirão</p></div>`; }
+    
+    async function renderAdmin() {
+        if (!isAdmin) { document.getElementById('dynamicContent').innerHTML = '<div class="admin-card">❌ Acesso restrito</div>'; return; }
+        const usersSnap = await db.collection('users').get();
+        let usersHtml = '<div style="max-height:400px; overflow-y:auto;">';
+        for (const doc of usersSnap.docs) {
+            const data = doc.data();
+            const expiry = data.premiumExpiry?.toDate ? data.premiumExpiry.toDate() : null;
+            const expiryStr = expiry ? expiry.toLocaleDateString('pt-BR') : 'Vitalício (Admin)';
+            usersHtml += `
+                <div class="user-row">
+                    <div><strong>${data.email}</strong><br><small>${data.premium ? `⭐ PREMIUM até ${expiryStr}` : '🔓 FREE'}</small></div>
+                    <div>
+                        <select id="plan_${doc.id}" style="background:#1E293B; color:white; padding:4px; border-radius:6px;">
+                            <option value="free_${planConfig.freeDays}">FREE (${planConfig.freeDays} dias)</option>
+                            <option value="premium_${planConfig.premiumDays}">PREMIUM (${planConfig.premiumDays} dias)</option>
+                            <option value="premium_90">PREMIUM (90 dias)</option>
+                            <option value="premium_180">PREMIUM (180 dias)</option>
+                            <option value="premium_365">PREMIUM (365 dias)</option>
+                        </select>
+                        <button onclick="applyPlanToUser('${doc.id}')" style="background:#38BDF8; border:none; padding:4px 12px; border-radius:6px; margin-left:8px;">Aplicar</button>
+                    </div>
+                </div>
+            `;
+        }
+        usersHtml += '</div>';
+        
+        const html = `
+            <div class="admin-card">
+                <h3>🎛️ PAINEL DE CONTROLE - PLANOS</h3>
+                <div class="plan-config">
+                    <h4>⚙️ CONFIGURAÇÕES DOS PLANOS (PROMOÇÕES)</h4>
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 12px;">
+                        <div><label>📆 FREE (dias):</label><br><input type="number" id="freeDaysInput" value="${planConfig.freeDays}" style="background:#1E293B; border:none; padding:6px; border-radius:6px; color:white; width:80px;"></div>
+                        <div><label>⭐ PREMIUM (dias):</label><br><input type="number" id="premiumDaysInput" value="${planConfig.premiumDays}" style="background:#1E293B; border:none; padding:6px; border-radius:6px; color:white; width:80px;"></div>
+                        <div><button id="savePlanConfigBtn" class="btn-sm" style="width:auto; margin-top:20px;">💾 SALVAR CONFIGURAÇÕES</button></div>
+                    </div>
+                </div>
+                <h3>👥 USUÁRIOS</h3>
+                ${usersHtml}
+                <div style="margin-top: 20px;">
+                    <button id="clearCacheBtn" class="btn-sm">Limpar Cache</button>
+                </div>
+            </div>
+        `;
+        document.getElementById('dynamicContent').innerHTML = html;
+        
+        document.getElementById('savePlanConfigBtn')?.addEventListener('click', () => {
+            const newFreeDays = parseInt(document.getElementById('freeDaysInput').value);
+            const newPremiumDays = parseInt(document.getElementById('premiumDaysInput').value);
+            if (newFreeDays > 0) planConfig.freeDays = newFreeDays;
+            if (newPremiumDays > 0) planConfig.premiumDays = newPremiumDays;
+            localStorage.setItem('planConfig', JSON.stringify(planConfig));
+            alert(`✅ Configurações salvas!\nFREE: ${planConfig.freeDays} dias\nPREMIUM: ${planConfig.premiumDays} dias`);
+            renderAdmin();
+        });
+        document.getElementById('clearCacheBtn')?.addEventListener('click', () => { localStorage.clear(); loadMatches(true); });
+    }
+    
+    window.applyPlanToUser = async (userId) => {
+        const select = document.getElementById(`plan_${userId}`);
+        const [planType, days] = select.value.split('_');
+        await setUserPlan(userId, planType, parseInt(days));
+        alert(`✅ Plano aplicado: ${planType.toUpperCase()} por ${days} dias!`);
+        renderAdmin();
+    };
+    
+    async function renderHistory() {
+        const hist = bankrollData.history || [];
+        if (!hist.length) { document.getElementById('dynamicContent').innerHTML = '<div class="admin-card">📜 Nenhuma aposta</div>'; return; }
+        let rows = '';
+        hist.slice().reverse().forEach(h => { rows += `<div style="padding:8px 0; border-bottom:1px solid rgba(56,189,248,0.1);">${new Date(h.date).toLocaleString()} - ${h.games} - R$ ${h.stake} - ${h.status==='win'?'✅ GREEN':'❌ RED'}</div>`; });
+        document.getElementById('dynamicContent').innerHTML = `<div class="admin-card"><h3>📜 HISTÓRICO</h3>${rows}</div>`;
+    }
+    
+    function renderPerformance() {
+        const profit = bankrollData.totalReturned - bankrollData.totalInvested;
+        const roi = bankrollData.totalInvested > 0 ? (profit / bankrollData.totalInvested * 100) : 0;
+        document.getElementById('dynamicContent').innerHTML = `<div class="admin-card"><h3>📈 PERFORMANCE</h3><p>💰 Banca: R$ ${bankrollData.balance}</p><p>📊 Investido: R$ ${bankrollData.totalInvested}</p><p>📈 Retornado: R$ ${bankrollData.totalReturned}</p><p>${profit>=0?'✅ Lucro':'❌ Prejuízo'}: ${profit>=0?'+':''}R$ ${profit}</p><p>📊 ROI: ${roi.toFixed(1)}%</p></div>`;
+    }
+    
+    function renderCurrentView() {
+        if (!currentUser) return;
+        if (currentTab === 'dashboard') renderDashboard();
+        else if (currentTab === 'analysis') renderAnalysis();
+        else if (currentTab === 'goals') renderGoals();
+        else if (currentTab === 'corners') renderCorners();
+        else if (currentTab === 'btts') renderBtts();
+        else if (currentTab === 'cards') renderCards();
+        else if (currentTab === 'standings') renderStandings();
+        else if (currentTab === 'admin') renderAdmin();
+        else if (currentTab === 'history') renderHistory();
+        else if (currentTab === 'performance') renderPerformance();
+        else renderDashboard();
+    }
+    
+    // ================= EVENTOS =================
+    document.getElementById('prevDayBtn').onclick = () => { currentDate.setDate(currentDate.getDate()-1); document.getElementById('currentDateDisplay').innerText = currentDate.toLocaleDateString('pt-BR'); loadMatches(false); };
+    document.getElementById('nextDayBtn').onclick = () => { currentDate.setDate(currentDate.getDate()+1); document.getElementById('currentDateDisplay').innerText = currentDate.toLocaleDateString('pt-BR'); loadMatches(false); };
+    document.getElementById('todayBtn').onclick = () => { currentDate = new Date(); document.getElementById('currentDateDisplay').innerText = currentDate.toLocaleDateString('pt-BR'); loadMatches(false); };
+    document.getElementById('refreshDataBtn').onclick = () => { loadMatches(true); };
+    document.getElementById('addFundsBtn').onclick = async () => { let v = parseFloat(prompt("Valor:")); if(v>0){ bankrollData.balance += v; await db.collection('bankroll').doc(currentUser.uid).set(bankrollData); updateBankrollUI(); renderCurrentView(); } };
+    document.getElementById('resetBankrollBtn').onclick = async () => { if(confirm("Resetar banca?")){ bankrollData = { balance:1000, totalInvested:0, totalReturned:0, history:[] }; await db.collection('bankroll').doc(currentUser.uid).set(bankrollData); updateBankrollUI(); renderCurrentView(); } };
+    
+    document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', () => { document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active')); item.classList.add('active'); currentTab = item.dataset.tab; renderCurrentView(); }); });
+    
+    // ================= AUTENTICAÇÃO =================
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            currentUser = user;
+            isAdmin = user.email === ADMIN_EMAIL;
+            const plan = await checkUserPlan(user);
+            isPremium = plan.isPremium;
+            await loadBankroll(user.uid);
+            await updateBankrollUI();
+            document.getElementById('appLayout').style.display = 'flex';
+            document.getElementById('loginContainer').style.display = 'none';
+            await loadMatches(false);
+        } else {
+            document.getElementById('appLayout').style.display = 'none';
+            document.getElementById('loginContainer').style.display = 'flex';
+        }
+    });
+    
+    document.getElementById('doLoginBtn').onclick = () => {
+        auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value).catch(e => document.getElementById('authMessage').innerText = e.message);
+    };
+    let reg = false;
+    document.getElementById('toggleAuthBtn').onclick = () => {
+        if (!reg) {
+            const email = prompt("Digite seu e-mail:");
+            const pwd = prompt("Digite sua senha (mínimo 6 caracteres):");
+            if (email && pwd && pwd.length >= 6) {
+                auth.createUserWithEmailAndPassword(email, pwd).then(async (userCred) => {
+                    await setUserPlan(userCred.user.uid, 'free', planConfig.freeDays);
+                    alert("Conta criada! Faça login.");
+                }).catch(e => alert(e.message));
+            }
+        }
+        reg = !reg;
+    };
+    
+    // Carregar configurações salvas
+    const savedConfig = localStorage.getItem('planConfig');
+    if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        if (config.freeDays) planConfig.freeDays = config.freeDays;
+        if (config.premiumDays) planConfig.premiumDays = config.premiumDays;
+    }
+</script>
+</body>
+</html>
